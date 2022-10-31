@@ -1,0 +1,51 @@
+version: '3.9'
+
+services:
+  db:
+    image: mysql
+    container_name: db
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    volumes:
+      - ./db/db_data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=01234567
+    ports:
+      - 3306:3306
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      interval: 1s
+      retries: 120
+    networks:
+      - db_net
+
+  dbcreator:
+    build:
+      context: ./db_creator
+      dockerfile: Dockerfile
+    container_name: dbcreator
+    volumes:
+      - ./data.csv:/data/data.csv
+    command: python3 creator.py
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - db_net
+
+  application:
+    build:
+      context: ./application
+      dockerfile: Dockerfile
+    container_name: application
+    ports:
+      - 8000:8000
+    command: python3 app.py
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - db_net
+networks:
+  db_net:
+    driver: bridge
